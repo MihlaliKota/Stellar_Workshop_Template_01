@@ -1,4 +1,3 @@
-// src/context/CartContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const CartContext = createContext();
@@ -6,7 +5,6 @@ const CartContext = createContext();
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
   
-  // Load cart from localStorage on initial load
   useEffect(() => {
     const savedCart = localStorage.getItem('stellar-marketplace-cart');
     if (savedCart) {
@@ -14,7 +12,6 @@ export function CartProvider({ children }) {
     }
   }, []);
   
-  // Save cart to localStorage
   useEffect(() => {
     localStorage.setItem('stellar-marketplace-cart', JSON.stringify(cartItems));
   }, [cartItems]);

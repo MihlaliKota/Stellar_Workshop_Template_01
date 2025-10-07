@@ -1,22 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Horizon } from '@stellar/stellar-sdk'; 
-
-function extractPaymentDetails(transaction, publicKey) {
-  const payments = [];
-  if (transaction.operations) {
-    transaction.operations.forEach(op => {
-      if (op.type === 'payment' && op.source_account === publicKey) {
-        payments.push({
-          destination: op.destination,
-          amount: parseFloat(op.amount).toFixed(7), 
-          asset_type: op.asset_type, 
-          asset_code: op.asset_code, 
-        });
-      }
-    });
-  }
-  return payments;
-}
+import { Horizon } from '@stellar/stellar-sdk';
 
 function TransactionHistory({ publicKey, server }) {
   const [transactions, setTransactions] = useState([]);
@@ -39,29 +22,51 @@ function TransactionHistory({ publicKey, server }) {
       
         const transactionsResponse = await server.transactions()
           .forAccount(publicKey)
-          .limit(20) 
+          .limit(3) 
           .order('desc')
-          .join('transactions') 
           .call();
 
-        
-        const processedTransactions = transactionsResponse.records
-          .map(tx => {
-           
-            const payments = extractPaymentDetails(tx, publicKey);
+        const processedTransactions = [];
+
+        for (const tx of transactionsResponse.records) {
+          let processedTx = {
+            id: tx.id || '', 
+            hash: tx.hash || '', 
+            successful: tx.successful !== undefined ? tx.successful : false, 
+            createdAt: tx.created_at || '', 
+            payments: [], 
+            memo: tx.memo || '', 
+            fee_charged: parseFloat(tx.fee_charged || '0').toFixed(7), 
+          };
+
+          let operations = [];
+          try {
+            const operationsResponse = await server.operations()
+              .forTransaction(tx.id) 
+              .call();
+            operations = operationsResponse.records || []; 
+          } catch (opError) {
+            console.warn(`Failed to fetch operations for transaction ${tx.id}:`, opError);
+          }
 
           
-            return {
-              id: tx.id,
-              hash: tx.hash,
-              successful: tx.successful,
-              createdAt: tx.created_at,
-              payments: payments, 
-              memo: tx.memo, 
-              fee_charged: parseFloat(tx.fee_charged).toFixed(7), 
-            };
-          })
-          .filter(tx => tx.payments.length > 0); 
+          const payments = [];
+          for (const op of operations) {
+            if (op.type === 'payment' && op.source_account === publicKey) {
+              payments.push({
+                destination: op.destination || '', 
+                amount: parseFloat(op.amount || '0').toFixed(7), 
+                asset_type: op.asset_type || 'native', 
+                asset_code: op.asset_code || 'XLM', 
+              });
+            }
+          }
+
+
+          processedTx.payments = payments;
+
+          processedTransactions.push(processedTx);
+        }
 
         setTransactions(processedTransactions);
       } catch (fetchError) {
@@ -97,14 +102,16 @@ function TransactionHistory({ publicKey, server }) {
         </div>
       ) : (
         <div className="transactions-list">
-          {transactions.map(tx => (
-            <div key={tx.hash} className={`transaction-item ${tx.successful ? 'successful' : 'failed'}`}>
+          {transactions.map((tx, index) => (
+            <div key={`${tx.hash}-${index}`} className={`transaction-item ${tx.successful ? 'successful' : 'failed'}`}>
               <div className="transaction-header">
                 <div className="transaction-id">
-                  ID: <span className="id-truncated">{tx.hash.substring(0, 8)}...{tx.hash.substring(tx.hash.length - 8)}</span>
+                  ID: <span className="id-truncated">
+                    {tx.hash ? `${tx.hash.substring(0, 8)}...${tx.hash.substring(tx.hash.length - 8)}` : 'N/A'}
+                  </span>
                 </div>
                 <div className="transaction-date">
-                  {new Date(tx.createdAt).toLocaleString()} 
+                  {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : 'Date Unknown'}
                 </div>
                 <div className={`transaction-status ${tx.successful ? 'status-success' : 'status-failed'}`}>
                   {tx.successful ? 'Success' : 'Failed'}
@@ -113,14 +120,18 @@ function TransactionHistory({ publicKey, server }) {
               <div className="transaction-body">
                 <div className="transaction-payments">
                   <h4>Payments Made:</h4>
-                  {tx.payments.map((payment, index) => (
-                    <div key={index} className="payment-detail">
-                      <p><strong>To:</strong> {payment.destination.substring(0, 6)}...{payment.destination.substring(payment.destination.length - 6)}</p>
-                      <p><strong>Amount:</strong> {payment.amount} {payment.asset_type === 'native' ? 'XLM' : payment.asset_code}</p>
-                    </div>
-                  ))}
+                  {tx.payments.length > 0 ? (
+                    tx.payments.map((payment, pIndex) => (
+                      <div key={pIndex} className="payment-detail">
+                        <p><strong>To:</strong> {payment.destination ? `${payment.destination.substring(0, 6)}...${payment.destination.substring(payment.destination.length - 6)}` : 'Unknown Address'}</p>
+                        <p><strong>Amount:</strong> {payment.amount} {payment.asset_type === 'native' ? 'XLM' : payment.asset_code}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No payment details available for this transaction.</p>
+                  )}
                 </div>
-                 {tx.memo && (
+                 {tx.memo && tx.memo.trim() !== '' && (
                     <div className="transaction-memo">
                       <p><strong>Memo:</strong> {tx.memo}</p>
                     </div>
