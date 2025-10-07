@@ -57,7 +57,6 @@ src/assets/react.svg
 src/components/Cart.jsx
 src/components/Product.jsx
 src/components/ProductList.jsx
-src/components/SellerDashboard.jsx
 src/components/TransactionHistory.jsx
 src/components/WalletConnector.jsx
 src/context/CartContext.jsx
@@ -897,32 +896,20 @@ File: src/App.css
 File: src/App.jsx
 ================
 import { useState } from 'react';
-import {
-  StellarWalletsKit,
-  WalletNetwork,
-  xBullModule,
-  FreighterModule,
-  XBULL_ID
-} from '@creit.tech/stellar-wallets-kit';
+import { XBULL_ID, FreighterModule, xBullModule, WalletNetwork, StellarWalletsKit } from '@creit.tech/stellar-wallets-kit';
 import { Horizon, Networks } from '@stellar/stellar-sdk';
 import WalletConnector from './components/WalletConnector';
 import ProductList from './components/ProductList';
 import TransactionHistory from './components/TransactionHistory';
-import SellerDashboard from './components/SellerDashboard';
 import Cart from './components/Cart';
 import './App.css';
 
-// Initialize the wallet kit (this connects to different wallet types)
 const kit = new StellarWalletsKit({
   network: WalletNetwork.TESTNET,
   selectedWalletId: XBULL_ID,
-  modules: [
-    new xBullModule(),
-    new FreighterModule()
-  ],
+  modules: [new xBullModule(), new FreighterModule()],
 });
 
-// Initialize connection to Stellar testnet
 const server = new Horizon.Server('https://horizon-testnet.stellar.org');
 
 function App() {
@@ -946,46 +933,16 @@ function App() {
       <h1>Stellar Market</h1>
       <WalletConnector onConnect={handleConnect} />
       <p>{status}</p>
-
       {publicKey && (
-        <ProductList
-          publicKey={publicKey}
-          kit={kit}
-          server={server}
-          setStatus={setStatus}
-        />
+        <>
+          <ProductList publicKey={publicKey} kit={kit} server={server} setStatus={setStatus} />
+          <Cart publicKey={publicKey} kit={kit} server={server} setStatus={setStatus} />
+          <TransactionHistory publicKey={publicKey} server={server} />
+        </>
       )}
-
-      {publicKey && (
-        <SellerDashboard
-          publicKey={publicKey}
-          server={server}
-        />
-      )}
-
-      {publicKey && (
-        <TransactionHistory
-          publicKey={publicKey}
-          server={server}
-        />
-      )}
-
-      {publicKey && (
-        <Cart
-          publicKey={publicKey}
-          kit={kit}
-          server={server}
-          setStatus={setStatus}
-        />
-      )}
-
       <p className="note">
         Need test XLM? Use{' '}
-        <a
-          href="https://friendbot.stellar.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="https://friendbot.stellar.org" target="_blank" rel="noopener noreferrer">
           Friendbot
         </a>.
       </p>
@@ -1009,7 +966,7 @@ import { TransactionBuilder, Operation, Asset, Networks, Transaction } from '@st
 
 
 function Cart({ publicKey, kit, server, setStatus }) {
-  const { cartItems, totalPrice, clearCart } = useCart(); // Ensure these match CartContext provider
+  const { cartItems, totalPrice, clearCart } = useCart(); 
   const [processing, setProcessing] = useState(false);
 
   const handleCheckout = async () => {
@@ -1017,55 +974,49 @@ function Cart({ publicKey, kit, server, setStatus }) {
     setProcessing(true);
     setStatus('Processing checkout...');
     try {
-      // Load buyer's account
+
       const account = await server.loadAccount(publicKey);
 
-      // Build transaction for all items
-      // Note: SDK v14.x uses TransactionBuilder, Operation, Asset, Networks
       const transaction = new TransactionBuilder(account, {
-        fee: await server.fetchBaseFee(), // Use the server instance passed down
+        fee: await server.fetchBaseFee(),
         networkPassphrase: Networks.TESTNET,
       });
 
-      // Add payment operations for each unique seller
+
       const sellers = {};
       cartItems.forEach(item => {
         if (!sellers[item.seller]) {
           sellers[item.seller] = 0;
         }
-        // Ensure price is treated as a number and formatted correctly
         sellers[item.seller] += parseFloat(item.price) * item.quantity;
       });
 
       Object.entries(sellers).forEach(([seller, amount]) => {
-        // Use Operation.payment from the imported SDK
         transaction.addOperation(
           Operation.payment({
             destination: seller,
-            asset: Asset.native(), // Use Asset.native from the imported SDK
-            amount: amount.toFixed(7), // Format amount as string with correct decimals
+            asset: Asset.native(), 
+            amount: amount.toFixed(7), 
           })
         );
       });
 
-      // Build transaction
-      const builtTransaction = transaction.setTimeout(30).build(); // Use setTimeout from builder
 
-      // Sign transaction with user's wallet using the kit instance passed down
+      const builtTransaction = transaction.setTimeout(30).build(); 
+
       const { signedTxXdr } = await kit.signTransaction(builtTransaction.toXDR(), {
         address: publicKey,
         networkPassphrase: Networks.TESTNET,
       });
 
-      // Rebuild the transaction object from the signed XDR using the SDK
-      // SDK v14.x: Use TransactionBuilder.fromXDR
+
       const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET);
 
-      // Submit transaction to Stellar network using the server instance passed down
-      await server.submitTransaction(signedTransaction); // Use the server instance passed down
+   
+      await server.submitTransaction(signedTransaction);
 
       setStatus(`Successfully purchased ${cartItems.length} items!`);
-      clearCart(); // Use clearCart from the context
+      clearCart(); 
     } catch (error) {
       console.error('Checkout failed:', error);
       setStatus('Checkout failed. Check console for details.');
@@ -1087,7 +1038,7 @@ function Cart({ publicKey, kit, server, setStatus }) {
       <h2>Your Cart</h2>
       <div className="cart-items">
         {cartItems.map(item => (
-          <div key={item.id} className="cart-item"> {/* Use item.id as key */}
+          <div key={item.id} className="cart-item">
             <img src={item.image} alt={item.name} className="cart-item-image" />
             <div className="cart-item-details">
               <h3>{item.name}</h3>
@@ -1100,7 +1051,7 @@ function Cart({ publicKey, kit, server, setStatus }) {
         <p>Total: {totalPrice.toFixed(2)} XLM</p>
         <button
           onClick={handleCheckout}
-          disabled={processing || !publicKey} // Disable button during processing or if not connected
+          disabled={processing || !publicKey} 
         >
           {processing ? 'Processing...' : 'Checkout'}
         </button>
@@ -1244,130 +1195,6 @@ function ProductList({ publicKey, kit, server, setStatus }) {
 }
 
 export default ProductList;
-
-================
-File: src/components/SellerDashboard.jsx
-================
-// src/components/SellerDashboard.jsx
-import { useState, useEffect } from 'react';
-
-function SellerDashboard({ publicKey, server }) {
-  const [products, setProducts] = useState([]);
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    price: '',
-    image: null
-  });
-  const [loading, setLoading] = useState(true);
-  
-  // Mock seller address check - in real app, this would be more secure
-  const isSeller = publicKey === 'GB66WWJBXVTB4WLTSMTRBADE2IYUHGEPOHJCBDJ4W3YQTZYTXLOXNTHL';
-  
-  useEffect(() => {
-    // In a real app, this would fetch from a database
-    // For this example, we'll use the same products as ProductList
-    const mockProducts = [
-      { 
-        id: 1, 
-        name: 'Stellar T-Shirt', 
-        price: '5', 
-        seller: 'GB66WWJBXVTB4WLTSMTRBADE2IYUHGEPOHJCBDJ4W3YQTZYTXLOXNTHL',
-        image: '/products/tshirt.jpg'
-      },
-      { 
-        id: 2, 
-        name: 'Stellar Mug', 
-        price: '10', 
-        seller: 'GB66WWJBXVTB4WLTSMTRBADE2IYUHGEPOHJCBDJ4W3YQTZYTXLOXNTHLNF3ZD',
-        image: '/products/mug.jpg'
-      },
-    ];
-    
-    setProducts(mockProducts.filter(p => p.seller === publicKey));
-    setLoading(false);
-  }, [publicKey]);
-  
-  const handleAddProduct = (e) => {
-    e.preventDefault();
-    if (!newProduct.name || !newProduct.price) return;
-    
-    // In real app, this would save to a database
-    const product = {
-      id: Date.now(),
-      name: newProduct.name,
-      price: newProduct.price,
-      seller: publicKey,
-      image: newProduct.image ? URL.createObjectURL(newProduct.image) : null
-    };
-    
-    setProducts([...products, product]);
-    setNewProduct({ name: '', price: '', image: null });
-  };
-  
-  if (!publicKey) return null;
-  if (!isSeller) return null;
-  
-  return (
-    <div className="seller-dashboard">
-      <h2>Seller Dashboard</h2>
-      
-      <div className="add-product-form">
-        <h3>Add New Product</h3>
-        <form onSubmit={handleAddProduct}>
-          <input
-            type="text"
-            placeholder="Product name"
-            value={newProduct.name}
-            onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-            required
-          />
-          <input
-            type="number"
-            placeholder="Price (XLM)"
-            value={newProduct.price}
-            onChange={e => setNewProduct({...newProduct, price: e.target.value})}
-            required
-            min="0"
-            step="0.0000001"
-          />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={e => setNewProduct({...newProduct, image: e.target.files[0]})}
-          />
-          <button type="submit">Add Product</button>
-        </form>
-      </div>
-      
-      <div className="my-products">
-        <h3>My Products</h3>
-        {loading ? (
-          <p>Loading products...</p>
-        ) : products.length === 0 ? (
-          <p>You don't have any products listed</p>
-        ) : (
-          <div className="products-grid">
-            {products.map(product => (
-              <div key={product.id} className="product-card">
-                {product.image && (
-                  <img 
-                    src={product.image} 
-                    alt={product.name} 
-                    className="product-image"
-                  />
-                )}
-                <h4>{product.name}</h4>
-                <p>Price: {product.price} XLM</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default SellerDashboard;
 
 ================
 File: src/components/TransactionHistory.jsx

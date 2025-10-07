@@ -4,7 +4,7 @@ import { TransactionBuilder, Operation, Asset, Networks, Transaction } from '@st
 
 
 function Cart({ publicKey, kit, server, setStatus }) {
-  const { cartItems, totalPrice, clearCart } = useCart(); // Ensure these match CartContext provider
+  const { cartItems, totalPrice, clearCart } = useCart(); 
   const [processing, setProcessing] = useState(false);
 
   const handleCheckout = async () => {
@@ -12,55 +12,49 @@ function Cart({ publicKey, kit, server, setStatus }) {
     setProcessing(true);
     setStatus('Processing checkout...');
     try {
-      // Load buyer's account
+
       const account = await server.loadAccount(publicKey);
 
-      // Build transaction for all items
-      // Note: SDK v14.x uses TransactionBuilder, Operation, Asset, Networks
       const transaction = new TransactionBuilder(account, {
-        fee: await server.fetchBaseFee(), // Use the server instance passed down
+        fee: await server.fetchBaseFee(),
         networkPassphrase: Networks.TESTNET,
       });
 
-      // Add payment operations for each unique seller
+
       const sellers = {};
       cartItems.forEach(item => {
         if (!sellers[item.seller]) {
           sellers[item.seller] = 0;
         }
-        // Ensure price is treated as a number and formatted correctly
         sellers[item.seller] += parseFloat(item.price) * item.quantity;
       });
 
       Object.entries(sellers).forEach(([seller, amount]) => {
-        // Use Operation.payment from the imported SDK
         transaction.addOperation(
           Operation.payment({
             destination: seller,
-            asset: Asset.native(), // Use Asset.native from the imported SDK
-            amount: amount.toFixed(7), // Format amount as string with correct decimals
+            asset: Asset.native(), 
+            amount: amount.toFixed(7), 
           })
         );
       });
 
-      // Build transaction
-      const builtTransaction = transaction.setTimeout(30).build(); // Use setTimeout from builder
 
-      // Sign transaction with user's wallet using the kit instance passed down
+      const builtTransaction = transaction.setTimeout(30).build(); 
+
       const { signedTxXdr } = await kit.signTransaction(builtTransaction.toXDR(), {
         address: publicKey,
         networkPassphrase: Networks.TESTNET,
       });
 
-      // Rebuild the transaction object from the signed XDR using the SDK
-      // SDK v14.x: Use TransactionBuilder.fromXDR
+
       const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET);
 
-      // Submit transaction to Stellar network using the server instance passed down
-      await server.submitTransaction(signedTransaction); // Use the server instance passed down
+   
+      await server.submitTransaction(signedTransaction);
 
       setStatus(`Successfully purchased ${cartItems.length} items!`);
-      clearCart(); // Use clearCart from the context
+      clearCart(); 
     } catch (error) {
       console.error('Checkout failed:', error);
       setStatus('Checkout failed. Check console for details.');
@@ -82,7 +76,7 @@ function Cart({ publicKey, kit, server, setStatus }) {
       <h2>Your Cart</h2>
       <div className="cart-items">
         {cartItems.map(item => (
-          <div key={item.id} className="cart-item"> {/* Use item.id as key */}
+          <div key={item.id} className="cart-item">
             <img src={item.image} alt={item.name} className="cart-item-image" />
             <div className="cart-item-details">
               <h3>{item.name}</h3>
@@ -95,7 +89,7 @@ function Cart({ publicKey, kit, server, setStatus }) {
         <p>Total: {totalPrice.toFixed(2)} XLM</p>
         <button
           onClick={handleCheckout}
-          disabled={processing || !publicKey} // Disable button during processing or if not connected
+          disabled={processing || !publicKey} 
         >
           {processing ? 'Processing...' : 'Checkout'}
         </button>
