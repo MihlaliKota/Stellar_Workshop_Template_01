@@ -73,7 +73,6 @@ marketplace/
 │   │   ├── Product.jsx
 │   │   ├── ProductList.jsx
 │   │   ├── Cart.jsx
-│   │   ├── SellerDashboard.jsx
 │   │   └── TransactionHistory.jsx
 │   ├── context/
 │   │   └── CartContext.jsx
