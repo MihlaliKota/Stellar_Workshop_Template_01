@@ -15,8 +15,6 @@ Add products to a shopping cart
 
 View recent transactions
 
-(Optional) Add new products through a seller dashboard
-
 Enjoy a more interactive, polished interface
 
 ## Prerequisites
@@ -96,7 +94,7 @@ export default defineConfig({
   define: {
     global: 'window',
   },
-})
+});
 ```
 
 Why this matters:
@@ -139,18 +137,11 @@ Replace src/App.jsx with:
 
 ```bash
 import { useState } from 'react';
-import {
-  StellarWalletsKit,
-  WalletNetwork,
-  xBullModule,
-  FreighterModule,
-  XBULL_ID
-} from '@creit.tech/stellar-wallets-kit';
+import { XBULL_ID, FreighterModule, xBullModule, WalletNetwork, StellarWalletsKit } from '@creit.tech/stellar-wallets-kit';
 import { Horizon, Networks } from '@stellar/stellar-sdk';
 import WalletConnector from './components/WalletConnector';
 import ProductList from './components/ProductList';
 import TransactionHistory from './components/TransactionHistory';
-import SellerDashboard from './components/SellerDashboard';
 import Cart from './components/Cart';
 import './App.css';
 
@@ -180,19 +171,16 @@ function App() {
 
   return (
     <div className="app">
-      <h1>Stellar Marketplace (Enhanced)</h1>
+      <h1>Stellar Market</h1>
       <WalletConnector onConnect={handleConnect} />
       <p>{status}</p>
-
       {publicKey && (
         <>
           <ProductList publicKey={publicKey} kit={kit} server={server} setStatus={setStatus} />
           <Cart publicKey={publicKey} kit={kit} server={server} setStatus={setStatus} />
-          <SellerDashboard publicKey={publicKey} server={server} />
           <TransactionHistory publicKey={publicKey} server={server} />
         </>
       )}
-
       <p className="note">
         Need test XLM? Use{' '}
         <a href="https://friendbot.stellar.org" target="_blank" rel="noopener noreferrer">
@@ -223,8 +211,6 @@ You can extend them to include:
 
 Product images
 
-Seller details
-
 Custom asset types (tokens other than XLM)
 
 ## Step 7: Add Context for Cart
@@ -232,25 +218,81 @@ Custom asset types (tokens other than XLM)
 Create src/context/CartContext.jsx:
 
 ```bash
-import { createContext, useState, useContext } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState([]);
-
-  const addToCart = (product) => setCart([...cart, product]);
-  const removeFromCart = (id) => setCart(cart.filter(item => item.id !== id));
-  const clearCart = () => setCart([]);
-
+  const [cartItems, setCartItems] = useState([]);
+  
+  useEffect(() => {
+    const savedCart = localStorage.getItem('stellar-marketplace-cart');
+    if (savedCart) {
+      setCartItems(JSON.parse(savedCart));
+    }
+  }, []);
+  
+  useEffect(() => {
+    localStorage.setItem('stellar-marketplace-cart', JSON.stringify(cartItems));
+  }, [cartItems]);
+  
+  const addToCart = (product) => {
+    setCartItems(prevItems => {
+      const existingItem = prevItems.find(item => item.id === product.id);
+      if (existingItem) {
+        return prevItems.map(item => 
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prevItems, { ...product, quantity: 1 }];
+    });
+  };
+  
+  const removeFromCart = (productId) => {
+    setCartItems(prevItems => 
+      prevItems.filter(item => item.id !== productId)
+    );
+  };
+  
+  const updateQuantity = (productId, quantity) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    
+    setCartItems(prevItems => 
+      prevItems.map(item => 
+        item.id === productId ? { ...item, quantity } : item
+      )
+    );
+  };
+  
+  const clearCart = () => {
+    setCartItems([]);
+  };
+  
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = cartItems.reduce((sum, item) => 
+    sum + (parseFloat(item.price) * item.quantity), 0);
+  
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart }}>
+    <CartContext.Provider value={{
+      cartItems,
+      totalItems,
+      totalPrice,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart
+    }}>
       {children}
     </CartContext.Provider>
   );
 }
 
-export const useCart = () => useContext(CartContext);
+export function useCart() {
+  return useContext(CartContext);
+}
 ```
 
 What this does:
@@ -321,8 +363,6 @@ New Features Introduced
 Shopping Cart — Add multiple items and purchase in one go
 
 Transaction History — View previous purchases directly in the app
-
-Seller Dashboard — Add and manage listings
 
 Improved UI — Clean, responsive, and user-friendly design
 
