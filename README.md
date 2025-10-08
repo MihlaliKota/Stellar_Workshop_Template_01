@@ -387,6 +387,10 @@ Check your XLM balance and request more test funds via Friendbot.
 App won’t start:
 Make sure dependencies are installed with npm install.
 
+## Site
+
+To view the site you can visit this link https://stellar-workshop-template-01-2721-v1ylo23x0.vercel.app/
+
 ## Next Steps
 
 Now that you’ve built an enhanced marketplace, try adding:
