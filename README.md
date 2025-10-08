@@ -389,7 +389,7 @@ Make sure dependencies are installed with npm install.
 
 ## Site
 
-To view the site you can visit this link https://stellar-workshop-template-01-2721-v1ylo23x0.vercel.app/
+To view the site you can visit this link https://stellar-workshop-template-01.vercel.app/
 
 ## Next Steps
 
